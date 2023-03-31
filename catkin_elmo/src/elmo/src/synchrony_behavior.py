@@ -42,29 +42,6 @@ class Node:
         self.pan_tilt_api.enable(False, False)
         rospy.set_param("behaviour/synchrony_behaviour/enabled", self.enabled)
 
-    def run(self):
-        rate = rospy.Rate(10)
-        url = self.server_api.url_for_image("normal.png")
-        self.onboard_api.set_image(url)
-        i = 0
-        self.enabled = True
-        pan_array = [80, 80, 80, 80]
-        tilt_array = [0.1, 15, -15, 15]
-        sleep_array = [5.0, 5.0, 2.0, 2.0]
-        while i < 4:
-            rate.sleep()
-            if self.enabled:
-                limits = self.pan_tilt_api.get_limits()
-                pan = pan_array[i]
-                tilt = tilt_array[i]
-                self.pan_tilt_api.set_angles(
-                    pan=pan,
-                    tilt=tilt
-                )
-                rospy.loginfo("pan: %.2f | tilt: %.2f" % (pan, tilt))
-                rospy.sleep(sleep_array[i])
-            i += 1
-        self.enabled = False
     
 
     def gaze(self, pan, tilt, duration, freq, move):
@@ -97,12 +74,23 @@ class Node:
 
 
     def synchrony(self):
+        rate = rospy.Rate(10)
         print("Starting Synchronous Behaviour")
-        self.pan_tilt_api.enable(True, True)
-        time.sleep(.5)
-        self.pan_tilt_api.reset_angles()
-        time.sleep(3)
-        self.gaze(40,-15,3000,5,"LINEAR")
+       
+        OBJECT = {'pan': 80, 'tilt': 15, 'target': 'Object'}
+        PERSON = {'pan': 80, 'tilt': -5, 'target': 'Person'}
+        gazes = [OBJECT, PERSON, OBJECT, PERSON, OBJECT, PERSON, OBJECT]
+        duration = [2.0, 2.0, 2.0, 1.0, 1.0, 0.5, 0.5]
+        wait_after_gaze = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0]
+        i = 0        
+        while i < len(gazes):
+            p = gazes[i]['pan']
+            t = gazes[i]['tilt']
+            self.pan_tilt_api.set_angles(pan=p, tilt=t, playtime= duration[i])
+            print("Gazing at " + gazes[i]['target'])
+            time.sleep(duration[i] + wait_after_gaze[i])
+            i += 1
+        print("Finished Synchronous Behaviour")
 
 
 if __name__ == '__main__':

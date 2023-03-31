@@ -105,27 +105,36 @@ class Node:
         self.command_tilt_torque = msg.tilt_torque
         self.command_pan_angle = msg.pan_angle
         self.command_tilt_angle = msg.tilt_angle
-        self.command_playtime = msg.playtime * 100 if msg.playtime > 0 else self.min_playtime
+        self.command_playtime = msg.playtime * 100 if msg.playtime > 0 else 0.1
         # limit range
         self.command_pan_angle = max(self.min_pan_angle, min(self.command_pan_angle, self.max_pan_angle))
         self.command_tilt_angle = max(self.min_tilt_angle, min(self.command_tilt_angle, self.max_tilt_angle))
-        # calculate min playtime
+        # calculate normalized motion ranges for pan and tilt
         motion_range_pan = math.fabs(self.command_pan_angle - self.status_pan_angle)
         max_range_pan = self.max_pan_angle - self.min_pan_angle
         motion_range_pan_normalized = linterpol(motion_range_pan, 0, max_range_pan, 0.0, 1.0)
         motion_range_tilt = math.fabs(self.command_tilt_angle - self.status_tilt_angle)
         max_range_tilt = self.max_tilt_angle - self.min_tilt_angle
         motion_range_tilt_normalized = linterpol(motion_range_tilt, 0, max_range_tilt, 0.0, 1.0)
-        # use largest motion for min playtime calculation
+        # fix command_playtime if motion velocity is beyond range
         if motion_range_pan_normalized > motion_range_tilt_normalized:
-            min_playtime = linterpol(motion_range_pan, 0, self.max_pan_angle - self.min_pan_angle, self.min_playtime, self.max_playtime)
+            pan_vel_max = max_range_pan / self.min_playtime
+            pan_vel_min = max_range_pan / self.max_playtime
+            pan_vel_command = motion_range_pan / self.command_playtime
+            if pan_vel_command > pan_vel_max:
+                self.command_playtime = (motion_range_pan * self.min_playtime) / max_range_pan
+            elif pan_vel_command < pan_vel_min:
+                self.command_playtime = (motion_range_pan * self.max_playtime) / max_range_pan
         else:
-            min_playtime = linterpol(motion_range_tilt, 0, self.max_tilt_angle - self.min_tilt_angle, self.min_playtime, self.max_playtime)
-        if self.command_playtime < min_playtime:
-            self.command_playtime = min_playtime
-        # limit upper playtime bound
-        if self.command_playtime > self.max_playtime:
-            self.command_playtime = self.max_playtime
+            tilt_vel_max = max_range_tilt / self.min_playtime
+            tilt_vel_min = max_range_tilt / self.max_playtime
+            tilt_vel_command = motion_range_tilt / self.command_playtime
+            if tilt_vel_command > tilt_vel_max:
+                self.command_playtime = (motion_range_tilt * self.min_playtime) / max_range_tilt
+            elif tilt_vel_command < tilt_vel_min:
+                self.command_playtime = (motion_range_tilt * self.max_playtime) / max_range_tilt
+
+        rospy.loginfo("Final command_playtime value is " + str(self.command_playtime))
 
     def run(self):
         rate = rospy.Rate(LOOP_RATE / 2.0)

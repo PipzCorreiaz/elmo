@@ -289,7 +289,7 @@ class PanTilt:
         def on_status(msg):
             self.status = msg
         rospy.Subscriber("pan_tilt/status", PanTiltMsg, on_status)
-        self.command_pub = rospy.Publisher("pan_tilt/command", PanTiltMsg, queue_size=10)
+        self.command_pub = rospy.Publisher("pan_tilt/command", PanTiltMsg, queue_size=100)
             
     def get_limits(self):
         return {
